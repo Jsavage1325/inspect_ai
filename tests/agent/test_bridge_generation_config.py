@@ -102,6 +102,42 @@ def test_openai_completions_forward_then_clear():
     assert config.response_schema is not None
 
 
+def test_openai_completions_extra_body_forwarded():
+    # regression test: the /chat/completions path must forward extra_body-eligible
+    # fields into config.extra_body like the /responses and Anthropic paths already
+    # do, and must survive clear_generation_params (extra_body is structural).
+    json_data = {
+        "model": "inspect",
+        "temperature": 0.8,
+        "service_tier": "flex",
+        "metadata": {"trace_id": "abc123"},
+        "store": True,
+        "safety_identifier": "user-123",
+        "prompt_cache_key": "cache-key-1",
+        "prompt_cache_retention": "24h",
+        # not in the allowlist - must not leak into extra_body
+        "user": "legacy-field",
+    }
+
+    config = generate_config_from_openai_completions(json_data)
+    assert config.extra_body == {
+        "service_tier": "flex",
+        "metadata": {"trace_id": "abc123"},
+        "store": True,
+        "safety_identifier": "user-123",
+        "prompt_cache_key": "cache-key-1",
+        "prompt_cache_retention": "24h",
+    }
+
+    clear_generation_params(config)
+    assert config.extra_body is not None
+
+
+def test_openai_completions_no_extra_body_fields_leaves_it_unset():
+    config = generate_config_from_openai_completions({"model": "inspect"})
+    assert config.extra_body is None
+
+
 def test_openai_responses_forward_then_clear():
     json_data = {
         "model": "inspect",

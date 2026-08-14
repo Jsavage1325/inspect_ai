@@ -142,6 +142,17 @@ def tools_from_openai_tools(tools: "list[ChatCompletionToolParam]") -> list[Tool
     return inspect_tools
 
 
+def chat_completions_extra_body_fields() -> list[str]:
+    return [
+        "service_tier",
+        "metadata",
+        "prompt_cache_key",
+        "prompt_cache_retention",
+        "safety_identifier",
+        "store",
+    ]
+
+
 def generate_config_from_openai_completions(
     json_data: dict[str, Any],
 ) -> GenerateConfig:
@@ -175,5 +186,13 @@ def generate_config_from_openai_completions(
                 json_schema=JSONSchema.model_validate(json_schema.get("schema", {})),
                 strict=json_schema.get("strict", None),
             )
+
+    # extra_body params (i.e. passthrough for native chat completions)
+    extra_body: dict[str, Any] = {}
+    for field in chat_completions_extra_body_fields():
+        if field in json_data:
+            extra_body[field] = json_data[field]
+    if len(extra_body) > 0:
+        config.extra_body = extra_body
 
     return config
